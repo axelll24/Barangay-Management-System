@@ -1,0 +1,202 @@
+253:    return { hasError: true, error };
+271:      return (
+297:    return (this as any).props.children;
+342:  return trimmed.split(/\s+/).filter(word => word.length > 0).length >= 2;
+346:  return new Promise((resolve) => {
+377:    return <img src={photoURL} alt="Profile" className={`${className} object-cover rounded-[2.5rem]`} referrerPolicy="no-referrer" />;
+380:    return <UserCircle className={`${className} text-pink-500`} />;
+383:    return <UserCircle className={`${className} text-blue-500`} />;
+385:  return <UserCircle className={`${className} text-slate-300`} />;
+389:  return (
+439:  return (
+494:  if (!name.trim() || isValidFullName(name)) return null;
+495:  return (
+528:    return () => document.removeEventListener("mousedown", handleClickOutside);
+535:  return (
+1087:    if (role !== 'official' || !donations.length) return;
+1177:    return translations[key]?.[appLanguage] || key;
+1235:          return;
+1264:    return () => unsubscribe();
+1277:    if (!isAuthReady || !auth.currentUser) return;
+1291:    return () => unsubUsers();
+1296:    if (!isAuthReady || !auth.currentUser || !role) return;
+1337:        return timeA - timeB;
+1427:    return () => {
+1452:        return deadline && deadline < now && d.status !== 'released' && d.status !== 'declined';
+1524:    return () => clearInterval(interval);
+1701:    return () => clearInterval(timer);
+1753:    return () => {
+1863:    if (!password) return { score: 0, label: 'Very Weak', color: 'bg-slate-200' };
+1874:    if (score === 1) return { score: 1, label: 'Weak', color: 'bg-rose-500' };
+1875:    if (score === 2) return { score: 2, label: 'Normal', color: 'bg-amber-500' };
+1876:    if (score === 3) return { score: 3, label: 'Strong', color: 'bg-emerald-500' };
+1878:    return { score: 0, label: 'Very Weak', color: 'bg-rose-500' };
+1888:    return (
+1927:        return 'Incorrect name or password. Please check your credentials and try again.';
+1929:        return 'This name is already registered. Please login instead or add a middle initial if you have a namesake.';
+1931:        return 'Too many failed attempts. Please try again later for your security.';
+1933:        return 'Sign-in is currently disabled. Please contact the Barangay Administrator.';
+1935:        return 'Connection error. Please check your internet and try again.';
+1939:        return msg.replace(/^Firebase:\s*/, '').replace(/\(auth\/.*\)\.?$/, '').trim() || 'An unexpected error occurred. Please try again.';
+2031:      if (!donationSnap.exists()) return;
+2075:      if (!appSnap.exists()) return;
+2078:      if (!application.isApplication) return;
+2112:        return;
+2194:      if (!appSnap.exists()) return;
+2219:      if (!appSnap.exists()) return;
+2224:        return;
+2307:      if (!projectSnap.exists()) return;
+2326:      return;
+2331:      return;
+2337:      if (!projectSnap.exists()) return;
+2342:        return;
+2353:        return;
+2375:    if (!auth.currentUser) return;
+2378:      return;
+2446:      if (!requestSnap.exists()) return;
+2533:    if (!uid) return;
+2555:    if (!file || !auth.currentUser) return;
+2622:          return m.senderId === senderId && m.receiverId === 'admin' && m.status === 'unread';
+2624:          return m.senderRole === 'official' && m.receiverId === auth.currentUser?.uid && m.status === 'unread';
+2641:    return (
+2853:                            return;
+2883:                                  return;
+2890:                                  return;
+2899:                                return;
+2996:                                return;
+3006:                                  return;
+3012:                                  return;
+3022:                              return;
+3028:                              return;
+3360:                          return;
+3364:                          return;
+3368:                          return;
+3372:                          return;
+3378:                          return;
+3382:                          return;
+3386:                          return;
+3390:                          return;
+3401:                              return true;
+3403:                            return false;
+3406:                            return false;
+3553:                          return;
+3619:                            return;
+3624:                            if (!name) return [];
+3625:                            return name.toLowerCase()
+3644:                              if (exWord === word) return true;
+3647:                              if (word.length === 1 && exWord.startsWith(word)) return true;
+3648:                              if (exWord.length === 1 && word.startsWith(exWord)) return true;
+3651:                              if (word.length > 2 && exWord.includes(word)) return true;
+3652:                              if (exWord.length > 2 && word.includes(exWord)) return true;
+3657:                                if (word.substring(0, 4) === exWord.substring(0, 4)) return true;
+3660:                              return false;
+3677:                            return;
+3690:                          return;
+3781:      case 'emerald': return { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600' };
+3782:      case 'blue': return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' };
+3783:      case 'amber': return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-600' };
+3784:      case 'rose': return { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-600' };
+3785:      case 'purple': return { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600' };
+3786:      default: return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' };
+3793:      case 'CheckCircle2': return <CheckCircle2 {...props} />;
+3794:      case 'ShieldAlert': return <ShieldAlert {...props} />;
+3795:      case 'Lightbulb': return <Lightbulb {...props} />;
+3796:      case 'Star': return <Star {...props} />;
+3797:      case 'Trophy': return <Trophy {...props} />;
+3798:      case 'Heart': return <Heart {...props} />;
+3799:      default: return <Trophy {...props} />;
+3806:        return (
+3829:        return (
+3851:        return (
+3870:        return (
+3885:        return (
+3897:        return (
+3910:        return (
+3925:        return (
+4006:    if (!pass) return '';
+4014:    if (score < 3) return 'Weak';
+4015:    if (score < 5) return 'Medium';
+4016:    return 'Strong';
+4031:    if (!contact) return '';
+4033:    if (!regex.test(contact)) return 'Invalid PH mobile number (e.g., 09123456789)';
+4034:    return '';
+4044:    if (!contact || contact.length < 11) return contact;
+4045:    return contact.substring(0, 4) + '****' + contact.substring(8);
+4049:    if (contactError) return;
+4110:        return renderDashboardContent();
+4112:        return (
+4130:        return (
+4151:        return (
+4549:        return (
+4610:                return (
+4863:        return renderDashboardContent();
+4867:  return (
+5058:        return (
+5503:      return (m.senderId === currentUser.id && m.receiverId === 'admin') ||
+5506:      return (m.senderRole === 'official' && m.receiverId === activeChatId) ||
+5519:    return { 
+5554:  if (!isOpen) return null;
+5556:  return (
+5676:                  return (
+5789:  return (
+5807:  return (
+5870:  return (
+5886:  return (
+5947:    if (notif.type === 'donation') return 'Donation';
+5948:    if (notif.type === 'application' && notif.targetSubTab === 'donations') return 'Application';
+5949:    if (notif.targetSubTab === 'projects') return 'Projects';
+5950:    if (notif.type === 'audit' || notif.targetSubTab === 'transparency') return 'Audit';
+5951:    if (notif.type === 'appointment' || notif.targetSubTab === 'appointments') return 'Appointment';
+5952:    return 'Others';
+5956:    if (role !== 'official' || activeFilter === 'All') return true;
+5957:    return getNotifCategory(notif) === activeFilter;
+5962:  return (
+6143:        if (activeStatusTab === 'pending') return d.status === 'pending_donation' || d.status === 'pending_application';
+6144:        if (activeStatusTab === 'approved') return d.status === 'available';
+6145:        if (activeStatusTab === 'declined') return d.status === 'declined';
+6146:        if (activeStatusTab === 'released') return d.status === 'released';
+6147:        return true;
+6154:      if (!isUserRecord) return false;
+6156:      if (activeStatusTab === 'pending') return d.status === 'pending_donation' || d.status === 'pending_application';
+6157:      if (activeStatusTab === 'approved') return d.status === 'available';
+6158:      if (activeStatusTab === 'declined') return d.status === 'declined';
+6159:      if (activeStatusTab === 'released') return d.status === 'released';
+6160:      return true;
+6164:    return filtered.sort((a, b) => {
+6166:        case 'date_desc': return new Date(b.date).getTime() - new Date(a.date).getTime();
+6167:        case 'date_asc': return new Date(a.date).getTime() - new Date(b.date).getTime();
+6168:        case 'name_az': return a.item.localeCompare(b.item);
+6169:        case 'name_za': return b.item.localeCompare(a.item);
+6170:        default: return 0;
+6182:    return grouped;
+6193:    return counts;
+6201:      return;
+6215:      return;
+6234:      return;
+6242:        return;
+6247:        return;
+6295:        return;
+6306:    return (
+6343:  return (
+6451:                        return;
+6776:                                  return;
+6978:      if (role === 'resident') return r.name === authName && r.status === activeAuditTab;
+6979:      return r.status === activeAuditTab;
+6982:    return filtered.sort((a, b) => {
+6984:        case 'date_desc': return new Date(b.date).getTime() - new Date(a.date).getTime();
+6985:        case 'date_asc': return new Date(a.date).getTime() - new Date(b.date).getTime();
+6986:        case 'name_az': return a.name.localeCompare(b.name);
+6987:        case 'name_za': return b.name.localeCompare(a.name);
+6988:        default: return 0;
+7000:      return;
+7063:  return (
+7670:    return {
+7727:    if (!file) return;
+7738:  return (
+7992:            return (
+8298:        return;
+8316:  return (
+8621:    return announcements.filter(a => a.date === dateStr);
+8644:  return (
+8684:            return (
+8818:                return aDate.getMonth() === month && aDate.getFullYear() === year;

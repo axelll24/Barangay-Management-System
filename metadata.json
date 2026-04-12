@@ -1,0 +1,7 @@
+{
+  "name": "Bayanihan App",
+  "description": "A community-driven platform for barangay transparency, donation management, and resident engagement.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

@@ -1,0 +1,376 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, fullName, nickname, address, contact, purok, role, position
+    //
+    // Collection: donations
+    // Fields: donorName, item, quantity, status, date, beneficiaryName, applicationReason, declineReason, donorUid, beneficiaryUid
+    //
+    // Collection: projects
+    // Fields: title, desc, votes, status, suggestedBy, suggestedByUid, date, declineReason
+    //
+    // Collection: auditRequests
+    // Fields: name, address, reason, status, date, responseReport, requesterUid
+    //
+    // Collection: budget
+    // Fields: category, allocated, spent
+    //
+    // Collection: announcements
+    // Fields: title, content, type, date, color
+    //
+    // Collection: messages
+    // Fields: senderId, senderName, senderRole, receiverId, text, timestamp, status
+    //
+    // Collection: notifications
+    // Fields: userId, title, message, type, status, date, targetTab, targetSubTab
+    //
+    // Collection: officials
+    // Fields: name, position, term, photo, email, phone, order
+    //
+    // Collection: barangayServices
+    // Fields: name, description, requirements, estimatedProcessingTime, assignedOfficialId
+    //
+    // Collection: appointments
+    // Fields: residentId, residentName, serviceId, serviceName, date, timeSlot, status, officialId, officialName, declineReason, rescheduleCount, createdAt, reminderSent
+    //
+    // Collection: officialAvailability
+    // Fields: officialId, dayOfWeek, startTime, endTime, maxSlotsPerTimeSlot
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "axeltiquez22@gmail.com" ||
+         request.auth.token.email == "leoreyes@pahinganorte.gov" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'official'));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data, userId) {
+      return hasRequiredFields(['uid', 'fullName', 'role']) &&
+             data.uid == userId &&
+             data.uid is string && data.fullName is string &&
+             data.role in ['resident', 'official'] &&
+             (!('nickname' in data) || data.nickname is string) &&
+             (!('contact' in data) || data.contact is string) &&
+             (!('purok' in data) || data.purok is string) &&
+             (!('gender' in data) || data.gender is string) &&
+             (!('position' in data) || data.position is string) &&
+             (!('photoURL' in data) || data.photoURL is string);
+    }
+
+    function isValidDonation(data) {
+      return hasRequiredFields(['item', 'quantity', 'status', 'date']) &&
+             data.item is string && data.quantity is number &&
+             data.status in ['pending_donation', 'available', 'pending_application', 'released', 'declined'];
+    }
+
+    function isValidProject(data) {
+      return hasRequiredFields(['title', 'desc', 'votes', 'status', 'date']) &&
+             data.title is string && data.desc is string && data.votes is number &&
+             data.status in ['pending', 'approved', 'declined'];
+    }
+
+    function isValidAuditRequest(data) {
+      return hasRequiredFields(['name', 'address', 'reason', 'status', 'date']) &&
+             data.name is string && data.address is string && data.reason is string &&
+             data.status in ['pending', 'responded'];
+    }
+
+    function isValidAuditReport(data) {
+      return hasRequiredFields(['title', 'description', 'date', 'author']) &&
+             data.title is string && data.description is string &&
+             data.date is string && data.author is string;
+    }
+
+    function isValidBudget(data) {
+      return hasRequiredFields(['category', 'allocated', 'spent']) &&
+             data.category is string && data.allocated is number && data.spent is number;
+    }
+
+    function isValidAnnouncement(data) {
+      return hasRequiredFields(['title', 'content', 'type', 'date']) &&
+             data.title is string && data.content is string &&
+             data.type in ['notice', 'update', 'event'];
+    }
+
+    function isValidProjectVote(data) {
+      return hasRequiredFields(['userId', 'projectId', 'date']) &&
+             data.userId == request.auth.uid &&
+             data.userId is string && data.projectId is string && data.date is string;
+    }
+
+    function isResident() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'resident';
+    }
+
+    function isValidMessage(data) {
+      return hasRequiredFields(['senderId', 'senderName', 'senderRole', 'receiverId', 'text', 'timestamp', 'status']) &&
+             data.senderId is string && data.senderName is string && data.senderRole is string &&
+             data.receiverId is string && data.text is string && data.timestamp is string &&
+             data.status in ['unread', 'read'] &&
+             (!('imageUrl' in data) || data.imageUrl is string) &&
+             (!('createdAt' in data) || (
+               (resource == null && data.createdAt == request.time) ||
+               (resource != null && data.createdAt == resource.data.createdAt)
+             )) &&
+             (!('senderProfile' in data) || (
+               data.senderProfile is map &&
+               data.senderProfile.fullName is string &&
+               (!('nickname' in data.senderProfile) || data.senderProfile.nickname is string) &&
+               data.senderProfile.address is string &&
+               data.senderProfile.contact is string &&
+               data.senderProfile.purok is string &&
+               (!('gender' in data.senderProfile) || data.senderProfile.gender is string) &&
+               (!('photoURL' in data.senderProfile) || data.senderProfile.photoURL is string)
+             ));
+    }
+
+    function isValidNotification(data) {
+      return hasRequiredFields(['userId', 'title', 'message', 'type', 'status', 'date']) &&
+             data.userId is string && data.title is string &&
+             data.type in ['donation', 'application', 'feedback', 'system', 'appointment', 'audit', 'project'];
+    }
+
+    function isValidOfficial(data) {
+      return hasRequiredFields(['name', 'position', 'term', 'photo']) &&
+             data.name is string && data.position is string &&
+             data.term is string && data.photo is string &&
+             (!('email' in data) || data.email is string) &&
+             (!('phone' in data) || data.phone is string) &&
+             (!('streets' in data) || data.streets is list);
+    }
+
+    function isValidCall(data) {
+      return hasRequiredFields(['callerId', 'callerName', 'receiverId', 'receiverName', 'status', 'timestamp']) &&
+             data.callerId is string && data.callerName is string &&
+             data.receiverId is string && data.receiverName is string &&
+             data.status in ['ringing', 'answered', 'declined', 'ended', 'missed'] &&
+             data.timestamp is string &&
+             (!('createdAt' in data) || (resource == null && data.createdAt == request.time) || (resource != null && data.createdAt == resource.data.createdAt)) &&
+             (!('offer' in data) || data.offer is map) &&
+             (!('answer' in data) || data.answer is map);
+    }
+
+    function isValidAchievement(data) {
+      return hasRequiredFields(['title', 'year', 'desc', 'icon', 'colorTheme']) &&
+             data.title is string && data.year is string && data.desc is string &&
+             data.icon is string && data.colorTheme is string;
+    }
+
+    function isValidBarangayService(data) {
+      return hasRequiredFields(['name', 'description', 'requirements']) &&
+             data.name is string && data.description is string &&
+             data.requirements is list;
+    }
+
+    function isValidAppointment(data) {
+      return hasRequiredFields(['residentId', 'residentName', 'serviceId', 'serviceName', 'date', 'timeSlot', 'status', 'createdAt']) &&
+             data.residentId is string && data.residentName is string &&
+             data.serviceId is string && data.serviceName is string &&
+             data.date is string && data.timeSlot is string &&
+             data.status in ['pending', 'approved', 'declined', 'completed', 'cancelled'] &&
+             data.createdAt is string &&
+             (!('officialId' in data) || data.officialId is string) &&
+             (!('officialName' in data) || data.officialName is string) &&
+             (!('declineReason' in data) || data.declineReason is string) &&
+             (!('rescheduleCount' in data) || data.rescheduleCount is number) &&
+             (!('reminderSent' in data) || data.reminderSent is bool);
+    }
+
+    function isValidOfficialAvailability(data) {
+      return hasRequiredFields(['officialId', 'dayOfWeek', 'startTime', 'endTime', 'maxSlotsPerTimeSlot']) &&
+             data.officialId is string && data.dayOfWeek is number &&
+             data.startTime is string && data.endTime is string &&
+             data.maxSlotsPerTimeSlot is number;
+    }
+
+    function isValidApprovalRecord(data) {
+      return hasRequiredFields(['record_id', 'feature_type', 'approved_by', 'approved_at', 'scheduled_date', 'scheduled_time', 'message']) &&
+             data.record_id is string && data.feature_type is string &&
+             data.approved_by is string && data.approved_at is string &&
+             data.scheduled_date is string && data.scheduled_time is string &&
+             data.message is string &&
+             (!('requirements' in data) || data.requirements is list) &&
+             (!('instructions' in data) || data.instructions is string);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    match /auditReports/{reportId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId) && isValidUser(request.resource.data, userId);
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data, userId) && (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /donations/{donationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidDonation(request.resource.data);
+      allow update: if isAdmin() || (isAuthenticated() && (request.resource.data.donorUid == resource.data.donorUid || request.resource.data.beneficiaryUid == resource.data.beneficiaryUid)) && isValidDonation(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidProject(request.resource.data);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (
+          isResident() && 
+          resource.data.suggestedByUid != request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) &&
+          request.resource.data.votes == resource.data.votes + 1 &&
+          existsAfter(/databases/$(database)/documents/projectVotes/$(request.auth.uid + "_" + request.resource.data.date))
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /projectVotes/{voteId} {
+      allow read: if isAuthenticated();
+      allow create: if isResident() && 
+                      isValidProjectVote(request.resource.data) &&
+                      voteId == request.auth.uid + "_" + request.resource.data.date &&
+                      get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.suggestedByUid != request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /auditRequests/{requestId} {
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.requesterUid == request.auth.uid);
+      allow create: if isAuthenticated() && isValidAuditRequest(request.resource.data);
+      allow update: if isAdmin() && isValidAuditRequest(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /budget/{categoryId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidBudget(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidAnnouncement(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.receiverId == request.auth.uid) && isValidMessage(request.resource.data);
+      allow delete: if isAuthenticated() && (isAdmin() || resource.data.senderId == request.auth.uid);
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid || resource.data.userId == 'resident' || resource.data.userId == 'admin' || resource.data.userId == 'official');
+      allow list: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid || resource.data.userId == 'resident' || resource.data.userId == 'admin' || resource.data.userId == 'official');
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid) && isValidNotification(request.resource.data);
+    }
+
+    match /officials/{officialId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidOfficial(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /former_officials/{officialId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidOfficial(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /calls/{callId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidCall(request.resource.data) && request.resource.data.callerId == request.auth.uid;
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.callerId == request.auth.uid || resource.data.receiverId == request.auth.uid) && isValidCall(request.resource.data);
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.callerId == request.auth.uid);
+
+      match /callerCandidates/{candidateId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+      }
+      match /receiverCandidates/{candidateId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+      }
+    }
+
+    match /achievements/{achievementId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidAchievement(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /barangayServices/{serviceId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin() && isValidBarangayService(request.resource.data);
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.residentId == request.auth.uid);
+      allow create: if isAuthenticated() && isValidAppointment(request.resource.data) && request.resource.data.residentId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (resource.data.residentId == request.auth.uid && 
+         request.resource.data.status in ['cancelled', 'pending'] &&
+         request.resource.data.rescheduleCount <= 3)
+      ) && isValidAppointment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /officialAvailability/{availabilityId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin() && isValidOfficialAvailability(request.resource.data);
+    }
+
+    match /approval_records/{recordId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidApprovalRecord(request.resource.data);
+      allow update, delete: if false;
+    }
+  }
+}

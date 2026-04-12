@@ -1,0 +1,345 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullName": { "type": "string" },
+        "nickname": { "type": "string" },
+        "address": { "type": "string" },
+        "contact": { "type": "string" },
+        "purok": { "type": "string" },
+        "role": { "type": "string", "enum": ["resident", "official"] },
+        "position": { "type": "string" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["uid", "fullName", "role"]
+    },
+    "Donation": {
+      "title": "Donation",
+      "description": "Donation or benefit application record",
+      "type": "object",
+      "properties": {
+        "donorName": { "type": "string" },
+        "item": { "type": "string" },
+        "quantity": { "type": "number" },
+        "value": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending_donation", "available", "pending_application", "released", "declined"] },
+        "date": { "type": "string" },
+        "beneficiaryName": { "type": "string" },
+        "applicationReason": { "type": "string" },
+        "requirements": { "type": "string" },
+        "declineReason": { "type": "string" },
+        "donorUid": { "type": "string" },
+        "beneficiaryUid": { "type": "string" }
+      },
+      "required": ["item", "quantity", "status", "date"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Community project suggestion",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "desc": { "type": "string" },
+        "votes": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "declined"] },
+        "suggestedBy": { "type": "string" },
+        "suggestedByUid": { "type": "string" },
+        "date": { "type": "string" },
+        "declineReason": { "type": "string" }
+      },
+      "required": ["title", "desc", "votes", "status", "date"]
+    },
+    "AuditRequest": {
+      "title": "AuditRequest",
+      "description": "Transparency audit request",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "responded"] },
+        "date": { "type": "string" },
+        "responseReport": { "type": "string" },
+        "requesterUid": { "type": "string" }
+      },
+      "required": ["name", "address", "reason", "status", "date"]
+    },
+    "AuditReport": {
+      "title": "AuditReport",
+      "description": "Official transparency audit reports",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string" },
+        "author": { "type": "string" },
+        "fileUrl": { "type": "string" }
+      },
+      "required": ["title", "description", "date", "author"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Barangay budget allocation",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string" },
+        "allocated": { "type": "number" },
+        "spent": { "type": "number" }
+      },
+      "required": ["category", "allocated", "spent"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Barangay announcement or event",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["notice", "update", "event"] },
+        "date": { "type": "string" },
+        "color": { "type": "string" }
+      },
+      "required": ["title", "content", "type", "date"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderRole": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "text": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["unread", "read"] },
+        "senderProfile": {
+          "type": "object",
+          "properties": {
+            "fullName": { "type": "string" },
+            "nickname": { "type": "string" },
+            "address": { "type": "string" },
+            "contact": { "type": "string" },
+            "purok": { "type": "string" },
+            "gender": { "type": "string" },
+            "photoURL": { "type": "string" }
+          }
+        }
+      },
+      "required": ["senderId", "senderName", "senderRole", "receiverId", "text", "timestamp", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["donation", "application", "feedback", "system"] },
+        "status": { "type": "string", "enum": ["unread", "read"] },
+        "date": { "type": "string" },
+        "targetTab": { "type": "string" },
+        "targetSubTab": { "type": "string" }
+      },
+      "required": ["userId", "title", "message", "type", "status", "date"]
+    },
+    "Official": {
+      "title": "Official",
+      "description": "Barangay official information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "position": { "type": "string" },
+        "term": { "type": "string" },
+        "photo": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "position", "term", "photo"]
+    },
+    "Call": {
+      "title": "Call",
+      "description": "Real-time call record for WebRTC signaling",
+      "type": "object",
+      "properties": {
+        "callerId": { "type": "string" },
+        "callerName": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "receiverName": { "type": "string" },
+        "status": { "type": "string", "enum": ["ringing", "answered", "declined", "ended", "missed"] },
+        "offer": { "type": "object" },
+        "answer": { "type": "object" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["callerId", "callerName", "receiverId", "status", "timestamp"]
+    },
+    "IceCandidate": {
+      "title": "IceCandidate",
+      "description": "WebRTC ICE candidate",
+      "type": "object",
+      "properties": {
+        "candidate": { "type": "string" },
+        "sdpMid": { "type": "string" },
+        "sdpMLineIndex": { "type": "number" },
+        "usernameFragment": { "type": "string" }
+      }
+    },
+    "ProjectVote": {
+      "title": "ProjectVote",
+      "description": "Record of a user voting for a project",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["userId", "projectId", "date"]
+    },
+    "BarangayService": {
+      "title": "BarangayService",
+      "description": "Barangay service details and requirements",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "requirements": { "type": "array", "items": { "type": "string" } },
+        "estimatedProcessingTime": { "type": "string" },
+        "assignedOfficialId": { "type": "string" }
+      },
+      "required": ["name", "description", "requirements"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Resident appointment record",
+      "type": "object",
+      "properties": {
+        "residentId": { "type": "string" },
+        "residentName": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "date": { "type": "string" },
+        "timeSlot": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "declined", "completed", "cancelled"] },
+        "officialId": { "type": "string" },
+        "officialName": { "type": "string" },
+        "declineReason": { "type": "string" },
+        "rescheduleCount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "reminderSent": { "type": "boolean" }
+      },
+      "required": ["residentId", "residentName", "serviceId", "serviceName", "date", "timeSlot", "status", "createdAt"]
+    },
+    "OfficialAvailability": {
+      "title": "OfficialAvailability",
+      "description": "Official's available schedule",
+      "type": "object",
+      "properties": {
+        "officialId": { "type": "string" },
+        "dayOfWeek": { "type": "number" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "maxSlotsPerTimeSlot": { "type": "number" }
+      },
+      "required": ["officialId", "dayOfWeek", "startTime", "endTime", "maxSlotsPerTimeSlot"]
+    },
+    "ApprovalRecord": {
+      "title": "ApprovalRecord",
+      "description": "Detailed record of an approved request",
+      "type": "object",
+      "properties": {
+        "record_id": { "type": "string" },
+        "feature_type": { "type": "string" },
+        "approved_by": { "type": "string" },
+        "approved_at": { "type": "string" },
+        "scheduled_date": { "type": "string" },
+        "scheduled_time": { "type": "string" },
+        "requirements": { "type": "array", "items": { "type": "string" } },
+        "instructions": { "type": "string" },
+        "message": { "type": "string" }
+      },
+      "required": ["record_id", "feature_type", "approved_by", "approved_at", "scheduled_date", "scheduled_time", "message"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/donations/{donationId}": {
+      "schema": "Donation",
+      "description": "Donations and applications"
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Project suggestions"
+    },
+    "/auditRequests/{requestId}": {
+      "schema": "AuditRequest",
+      "description": "Audit requests"
+    },
+    "/budget/{categoryId}": {
+      "schema": "Budget",
+      "description": "Budget records"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Announcements"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    },
+    "/officials/{officialId}": {
+      "schema": "Official",
+      "description": "Barangay officials"
+    },
+    "/calls/{callId}": {
+      "schema": "Call",
+      "description": "Real-time calls"
+    },
+    "/calls/{callId}/callerCandidates/{candidateId}": {
+      "schema": "IceCandidate",
+      "description": "ICE candidates from the caller"
+    },
+    "/calls/{callId}/receiverCandidates/{candidateId}": {
+      "schema": "IceCandidate",
+      "description": "ICE candidates from the receiver"
+    },
+    "/projectVotes/{voteId}": {
+      "schema": "ProjectVote",
+      "description": "Project votes tracking"
+    },
+    "/auditReports/{reportId}": {
+      "schema": "AuditReport",
+      "description": "Official audit reports"
+    },
+    "/barangayServices/{serviceId}": {
+      "schema": "BarangayService",
+      "description": "Barangay services"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Appointments"
+    },
+    "/officialAvailability/{availabilityId}": {
+      "schema": "OfficialAvailability",
+      "description": "Official availability schedules"
+    },
+    "/approval_records/{recordId}": {
+      "schema": "ApprovalRecord",
+      "description": "Approval audit trail"
+    }
+  }
+}
