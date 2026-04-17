@@ -128,7 +128,7 @@ export interface Notification {
   userId: string; // 'admin' or the resident's name
   title: string;
   message: string;
-  type: 'donation' | 'application' | 'feedback' | 'system' | 'appointment' | 'audit' | 'project';
+  type: 'donation' | 'application' | 'feedback' | 'system' | 'appointment' | 'audit' | 'project' | 'transparency';
   status: 'unread' | 'read';
   date: string;
   targetTab?: string;

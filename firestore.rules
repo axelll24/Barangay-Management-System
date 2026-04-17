@@ -56,12 +56,22 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isMainAdmin() {
+      return isAuthenticated() &&
+        (
+          request.auth.token.email == "axeltiquez22@gmail.com" ||
+          request.auth.token.email == "leoreyes@pahinganorte.gov"
+        );
+    }
+
     function isAdmin() {
       return isAuthenticated() &&
-        (request.auth.token.email == "axeltiquez22@gmail.com" ||
-         request.auth.token.email == "leoreyes@pahinganorte.gov" ||
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'official'));
+        (
+          request.auth.token.email == "axeltiquez22@gmail.com" ||
+          request.auth.token.email == "leoreyes@pahinganorte.gov" ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'official')
+        );
     }
 
     function hasOnlyAllowedFields(fields) {
@@ -92,7 +102,7 @@ service cloud.firestore {
     function isValidDonation(data) {
       return hasRequiredFields(['item', 'quantity', 'status', 'date']) &&
              data.item is string && data.quantity is number &&
-             data.status in ['pending_donation', 'available', 'pending_application', 'released', 'declined'];
+             data.status in ['pending_donation', 'available', 'pending_application', 'approved', 'released', 'declined', 'cancelled', 'completed'];
     }
 
     function isValidProject(data) {
@@ -161,7 +171,7 @@ service cloud.firestore {
     function isValidNotification(data) {
       return hasRequiredFields(['userId', 'title', 'message', 'type', 'status', 'date']) &&
              data.userId is string && data.title is string &&
-             data.type in ['donation', 'application', 'feedback', 'system', 'appointment', 'audit', 'project'];
+             data.type in ['donation', 'application', 'feedback', 'system', 'appointment', 'audit', 'project', 'transparency'];
     }
 
     function isValidOfficial(data) {
@@ -244,13 +254,14 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isOwner(userId) && isValidUser(request.resource.data, userId);
       allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data, userId) && (request.resource.data.role == resource.data.role || isAdmin());
+      allow delete: if isMainAdmin();
     }
 
     match /donations/{donationId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidDonation(request.resource.data);
       allow update: if isAdmin() || (isAuthenticated() && (request.resource.data.donorUid == resource.data.donorUid || request.resource.data.beneficiaryUid == resource.data.beneficiaryUid)) && isValidDonation(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isMainAdmin();
     }
 
     match /projects/{projectId} {
@@ -266,7 +277,7 @@ service cloud.firestore {
           existsAfter(/databases/$(database)/documents/projectVotes/$(request.auth.uid + "_" + request.resource.data.date))
         )
       );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isMainAdmin();
     }
 
     match /projectVotes/{voteId} {
@@ -275,14 +286,15 @@ service cloud.firestore {
                       isValidProjectVote(request.resource.data) &&
                       voteId == request.auth.uid + "_" + request.resource.data.date &&
                       get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.suggestedByUid != request.auth.uid;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isMainAdmin();
     }
 
     match /auditRequests/{requestId} {
-      allow read: if isAuthenticated() && (isAdmin() || resource.data.requesterUid == request.auth.uid);
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.requesterUid == request.auth.uid || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'official'));
       allow create: if isAuthenticated() && isValidAuditRequest(request.resource.data);
       allow update: if isAdmin() && isValidAuditRequest(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isMainAdmin();
     }
 
     match /budget/{categoryId} {
@@ -298,10 +310,10 @@ service cloud.firestore {
     }
 
     match /messages/{messageId} {
-      allow read: if isAuthenticated() && (isAdmin() || resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'official'));
       allow create: if isAuthenticated() && isValidMessage(request.resource.data);
       allow update: if isAuthenticated() && (isAdmin() || resource.data.receiverId == request.auth.uid) && isValidMessage(request.resource.data);
-      allow delete: if isAuthenticated() && (isAdmin() || resource.data.senderId == request.auth.uid);
+      allow delete: if isAuthenticated() && (isAdmin() || resource.data.senderId == request.auth.uid) || isMainAdmin();
     }
 
     match /notifications/{notificationId} {
@@ -309,6 +321,7 @@ service cloud.firestore {
       allow list: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid || resource.data.userId == 'resident' || resource.data.userId == 'admin' || resource.data.userId == 'official');
       allow create: if isAuthenticated() && isValidNotification(request.resource.data);
       allow update: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid) && isValidNotification(request.resource.data);
+      allow delete: if isMainAdmin();
     }
 
     match /officials/{officialId} {
@@ -327,15 +340,17 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidCall(request.resource.data) && request.resource.data.callerId == request.auth.uid;
       allow update: if isAuthenticated() && (isAdmin() || resource.data.callerId == request.auth.uid || resource.data.receiverId == request.auth.uid) && isValidCall(request.resource.data);
-      allow delete: if isAdmin() || (isAuthenticated() && resource.data.callerId == request.auth.uid);
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.callerId == request.auth.uid) || isMainAdmin();
 
       match /callerCandidates/{candidateId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated();
+        allow delete: if isMainAdmin();
       }
       match /receiverCandidates/{candidateId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated();
+        allow delete: if isMainAdmin();
       }
     }
 
@@ -351,7 +366,7 @@ service cloud.firestore {
     }
 
     match /appointments/{appointmentId} {
-      allow read: if isAuthenticated() && (isAdmin() || resource.data.residentId == request.auth.uid);
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.residentId == request.auth.uid || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'official'));
       allow create: if isAuthenticated() && isValidAppointment(request.resource.data) && request.resource.data.residentId == request.auth.uid;
       allow update: if isAuthenticated() && (
         isAdmin() || 
@@ -359,7 +374,7 @@ service cloud.firestore {
          request.resource.data.status in ['cancelled', 'pending'] &&
          request.resource.data.rescheduleCount <= 3)
       ) && isValidAppointment(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isMainAdmin();
     }
 
     match /officialAvailability/{availabilityId} {
@@ -370,7 +385,8 @@ service cloud.firestore {
     match /approval_records/{recordId} {
       allow read: if isAdmin();
       allow create: if isAdmin() && isValidApprovalRecord(request.resource.data);
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isMainAdmin();
     }
   }
 }

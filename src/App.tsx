@@ -71,7 +71,8 @@ import {
   Sliders,
   Filter,
   Menu,
-  Key
+  Key,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from "socket.io-client";
@@ -98,7 +99,8 @@ import {
   and,
   writeBatch,
   getDocs,
-  serverTimestamp
+  serverTimestamp,
+  getDocFromServer
 } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, 
@@ -140,7 +142,7 @@ interface FirestoreErrorInfo {
   }
 }
 
-const BARANGAY_LOGO = "/logo.png"; // Local logo file
+import BARANGAY_LOGO from './logo.png'; // Imported logo for Vite bundled handling
 
 const STREET_OPTIONS = [
   "ACACIA ST.",
@@ -1133,6 +1135,8 @@ export default function App() {
   const [appLanguage, setAppLanguage] = useState('en');
   const [darkMode, setDarkMode] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
 
   const t = (key: string) => {
@@ -1153,6 +1157,9 @@ export default function App() {
   const [showSettingsConfirmPassword, setShowSettingsConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState<any>(null);
   const [callingOfficial, setCallingOfficial] = useState<Official | null>(null);
@@ -1403,7 +1410,7 @@ export default function App() {
       // 4. Send notification
       if (residentId) {
         console.log('Sending notification to:', residentId);
-        await addNotification(residentId, `${featureType.charAt(0).toUpperCase() + featureType.slice(1)} Approved`, generatedMessage, featureType as any);
+        await addNotification(residentId, `${featureType.charAt(0).toUpperCase() + featureType.slice(1)} Approved`, generatedMessage, featureType === 'audit' ? 'transparency' : featureType as any);
       }
 
       setApprovalModalConfig(null);
@@ -1452,6 +1459,18 @@ export default function App() {
 
   // Auth effect
   useEffect(() => {
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        console.log("Firestore connection successful");
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. The client is offline.");
+        }
+      }
+    };
+    testConnection();
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // If we are in the middle of registration, don't auto-login
@@ -1477,6 +1496,10 @@ export default function App() {
           setAppLanguage(userData.language ?? 'en');
           setDarkMode(userData.darkMode ?? false);
           setCurrentUser(userData);
+        } else {
+          // User document doesn't exist, they might need to register
+          setRole('resident');
+          setCurrentUser(null);
         }
       } else {
         setRole(null);
@@ -2333,6 +2356,79 @@ export default function App() {
     }
   };
 
+  const handleSystemReset = async () => {
+    if (resetConfirmText !== 'CONFIRM') {
+      showAlert('Please type CONFIRM to proceed.');
+      return;
+    }
+    
+    setIsResetting(true);
+    try {
+      const collectionsToDelete = [
+        'appointments', 'donations', 'messages', 'notifications', 
+        'projects', 'auditRequests', 'auditReports', 'calls', 
+        'approval_records', 'announcements', 'budget', 'projectVotes'
+      ];
+
+      // Helper for chunked deletion (Firestore batches have a limit of 500 operations)
+      const deleteInBatches = async (docsToDelete: any[]) => {
+        const chunkSize = 500;
+        for (let i = 0; i < docsToDelete.length; i += chunkSize) {
+          const chunk = docsToDelete.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          chunk.forEach((docRef) => batch.delete(docRef));
+          await batch.commit();
+        }
+      };
+
+      // 1. Delete standard collections
+      for (const colName of collectionsToDelete) {
+        const querySnapshot = await getDocs(collection(db, colName));
+        const refsToDelete: any[] = [];
+        
+        querySnapshot.forEach((docSnap) => {
+          refsToDelete.push(docSnap.ref);
+        });
+
+        // 1a. Handle orphan subcollections for calls
+        if (colName === 'calls') {
+          for (const callDoc of querySnapshot.docs) {
+            const callerSnaps = await getDocs(collection(db, `calls/${callDoc.id}/callerCandidates`));
+            callerSnaps.forEach(cSnap => refsToDelete.push(cSnap.ref));
+            const receiverSnaps = await getDocs(collection(db, `calls/${callDoc.id}/receiverCandidates`));
+            receiverSnaps.forEach(rSnap => refsToDelete.push(rSnap.ref));
+          }
+        }
+
+        await deleteInBatches(refsToDelete);
+      }
+
+      // 2. Delete users (Preserving ONLY Leo Reyes)
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const userRefsToDelete: any[] = [];
+      usersSnapshot.forEach((userDoc) => {
+        const data = userDoc.data();
+        if (data.email !== 'leoreyes@pahinganorte.gov') {
+          userRefsToDelete.push(userDoc.ref);
+        }
+      });
+      await deleteInBatches(userRefsToDelete);
+
+      setShowResetConfirm(false);
+      setResetConfirmText('');
+      showAlert('System records have been successfully reset.');
+      
+      setActiveTab('dashboard');
+      setDashboardSubTab('system');
+
+    } catch (error: any) {
+      console.error('Error resetting system:', error);
+      showAlert('Error resetting system: ' + error.message);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const addNotification = async (userId: string, title: string, message: string, type: Notification['type'], targetTab?: string, targetSubTab?: string) => {
     const newNotif: any = {
       userId: userId || 'admin',
@@ -2787,7 +2883,7 @@ export default function App() {
     try {
       await addDoc(collection(db, 'auditRequests'), request);
       // Notify Admin
-      addNotification('admin', 'New Transparency Request', `${data.name} has submitted a new transparency request.`, 'audit', 'dashboard', 'transparency');
+      addNotification('admin', 'New Transparency Request', `${data.name} has submitted a new transparency request.`, 'transparency', 'dashboard', 'transparency');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'auditRequests');
     }
@@ -2805,7 +2901,7 @@ export default function App() {
 
       await updateDoc(requestRef, updateData);
       
-      addNotification(request.requesterUid || 'admin', 'Audit Request Update', `Your audit request has been marked as ${status}.`, 'audit', 'dashboard', 'transparency');
+      addNotification(request.requesterUid || 'admin', 'Audit Request Update', `Your audit request has been marked as ${status}.`, 'transparency', 'dashboard', 'transparency');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `auditRequests/${id}`);
     }
@@ -2819,7 +2915,7 @@ export default function App() {
     };
     try {
       await addDoc(collection(db, 'auditReports'), report);
-      addNotification('resident', 'New Audit Report Published', `A new transparency audit report "${data.title}" has been published.`, 'audit', 'dashboard', 'transparency');
+      addNotification('resident', 'New Audit Report Published', `A new transparency audit report "${data.title}" has been published.`, 'transparency', 'dashboard', 'transparency');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'auditReports');
     }
@@ -3678,6 +3774,9 @@ export default function App() {
                     )}
 
                     <div className="pt-4">
+                      <p className="text-xs text-slate-500 mb-2 italic">
+                        {t('Please read the Terms of Service and Privacy Policy before agreeing.')}
+                      </p>
                       <label className="flex items-start gap-4 cursor-pointer group">
                         <div className="relative flex items-center mt-1">
                           <input 
@@ -3690,7 +3789,7 @@ export default function App() {
                           <Check className="w-4 h-4 text-white absolute left-1 top-1 opacity-0 peer-checked:opacity-100 transition-opacity" />
                         </div>
                         <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">
-                          {t('I agree to the')} <button type="button" className="text-blue-600 hover:underline">{t('Terms of Service')}</button> {t('and')} <button type="button" className="text-blue-600 hover:underline">{t('Privacy Policy')}</button> {t('of the Barangay Portal.')}
+                          {t('I agree to the')} <button type="button" onClick={() => setShowTermsModal(true)} className="text-blue-600 hover:underline">{t('Terms of Service')}</button> {t('and')} <button type="button" onClick={() => setShowPrivacyModal(true)} className="text-blue-600 hover:underline">{t('Privacy Policy')}</button> {t('of the Barangay Portal.')}
                         </span>
                       </label>
                     </div>
@@ -3740,7 +3839,7 @@ export default function App() {
                           return;
                         }
                         if (!authTermsAccepted) {
-                          setAuthError(t('Please accept the Terms of Agreement to proceed.'));
+                          setAuthError(t('You must agree to the Terms of Service and Privacy Policy to continue.'));
                           return;
                         }
 
@@ -3915,7 +4014,16 @@ export default function App() {
                         let extractedNameFromId = '';
 
                         try {
-                          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+                          const rawGeminiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.GEMINI_API_KEY;
+                          
+                          if (!rawGeminiKey) {
+                            setIsScanningId(false);
+                            setScanStatus('idle');
+                            setAuthError(t('API Key is missing for ID Verification. Please add it to your deployment environment variables.'));
+                            return;
+                          }
+
+                          const ai = new GoogleGenAI({ apiKey: rawGeminiKey });
                           const base64Data = authIdImagePreview.split(',')[1];
                           const mimeType = authIdImage.type;
 
@@ -4105,6 +4213,135 @@ Respond in JSON format with the following schema:
           </div>
         </div>
       </div>
+
+      {/* Modals for Terms and Privacy (Rendered outside the main flow but inside the auth screen) */}
+      <AnimatePresence>
+        {showTermsModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-[#141414]/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b-2 border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">{t('Terms of Service')}</h3>
+                <button 
+                  onClick={() => setShowTermsModal(false)}
+                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors border-2 border-slate-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto">
+                <div className="prose prose-slate max-w-none">
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">1. User Responsibilities</h4>
+                  <p className="text-slate-600 mb-4">
+                    By creating an account, you agree to provide accurate, current, and complete information. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. Proper use of the system is required at all times.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">2. Prohibited Actions</h4>
+                  <p className="text-slate-600 mb-4">
+                    Users are strictly prohibited from providing fake information, misusing the platform, spamming, or engaging in any activity that disrupts the service or violates local laws and barangay ordinances.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">3. System Usage Rules</h4>
+                  <p className="text-slate-600 mb-4">
+                    The Barangay Portal is intended solely for barangay-related services, such as requesting documents, scheduling appointments, and receiving official announcements. Any use outside of these purposes is not allowed.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">4. Account Responsibility</h4>
+                  <p className="text-slate-600 mb-4">
+                    You are solely responsible for your account and any actions taken using it. If you suspect unauthorized access, you must notify the barangay administration immediately.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">5. Admin Rights</h4>
+                  <p className="text-slate-600 mb-4">
+                    Barangay administrators reserve the right to approve, decline, modify, or remove records, appointments, and user accounts if necessary to maintain system integrity and enforce these terms.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">6. Disclaimer</h4>
+                  <p className="text-slate-600">
+                    This system is provided for barangay service purposes only. While we strive to ensure the system is available and accurate, the barangay is not liable for any interruptions, errors, or damages arising from the use of the portal.
+                  </p>
+                </div>
+              </div>
+              <div className="p-6 border-t-2 border-slate-100 bg-slate-50 shrink-0">
+                <button 
+                  onClick={() => setShowTermsModal(false)}
+                  className="w-full py-4 bg-blue-600 text-white font-black uppercase tracking-widest rounded-xl border-2 border-blue-700 shadow-[4px_4px_0px_0px_rgba(29,78,216,1)] hover:bg-blue-700 transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
+                >
+                  {t('Close')}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showPrivacyModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-[#141414]/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b-2 border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">{t('Privacy Policy')}</h3>
+                <button 
+                  onClick={() => setShowPrivacyModal(false)}
+                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors border-2 border-slate-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto">
+                <div className="prose prose-slate max-w-none">
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">1. What Data is Collected</h4>
+                  <p className="text-slate-600 mb-4">
+                    We collect personal information necessary to provide barangay services. This may include your full name, address, contact information, identification documents (IDs), and other details required for verification and service processing.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">2. How Data is Used</h4>
+                  <p className="text-slate-600 mb-4">
+                    Your data is used exclusively for identity verification, processing service requests (e.g., document issuance, appointments), communicating official announcements, and improving barangay services.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">3. Data Protection</h4>
+                  <p className="text-slate-600 mb-4">
+                    We implement appropriate security measures to protect your personal data against unauthorized access, alteration, disclosure, or destruction. Data is stored securely with restricted access limited to authorized barangay personnel.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">4. Data Sharing</h4>
+                  <p className="text-slate-600 mb-4">
+                    Your personal information will not be shared, sold, or rented to third parties outside the barangay administration unless explicitly required by law or necessary to fulfill a specific service request you have initiated.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">5. User Rights</h4>
+                  <p className="text-slate-600 mb-4">
+                    You have the right to access, update, or correct your personal information. You may also request the deletion of your data, subject to legal and administrative retention requirements.
+                  </p>
+
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">6. Consent</h4>
+                  <p className="text-slate-600">
+                    By creating an account and using the Barangay Portal, you explicitly consent to the collection, use, and processing of your personal data as described in this Privacy Policy.
+                  </p>
+                </div>
+              </div>
+              <div className="p-6 border-t-2 border-slate-100 bg-slate-50 shrink-0">
+                <button 
+                  onClick={() => setShowPrivacyModal(false)}
+                  className="w-full py-4 bg-blue-600 text-white font-black uppercase tracking-widest rounded-xl border-2 border-blue-700 shadow-[4px_4px_0px_0px_rgba(29,78,216,1)] hover:bg-blue-700 transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
+                >
+                  {t('Close')}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </ErrorBoundary>
     );
   }
@@ -4897,6 +5134,74 @@ Respond in JSON format with the following schema:
                       >
                         {t('Save Preferences')}
                       </button>
+
+                      {/* System Reset Section */}
+                      {(auth.currentUser?.email === 'leoreyes@pahinganorte.gov' || auth.currentUser?.email === 'axeltiquez22@gmail.com') && (
+                        <div className="pt-8 mt-8 border-t-2 border-slate-200">
+                          <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center">
+                              <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <h5 className="font-black uppercase tracking-tight text-xl text-rose-600">{t('Danger Zone')}</h5>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('Irreversible actions')}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="p-6 bg-rose-50 border-2 border-rose-200 rounded-2xl space-y-4">
+                            <h6 className="font-black uppercase text-rose-700">{t('System Reset')}</h6>
+                            <p className="text-sm text-rose-600 font-medium">
+                              {t('This will delete ALL records from the system including residents, appointments, donations, messages, and notifications. Only the main admin account will be preserved. This action CANNOT be undone.')}
+                            </p>
+                            
+                            {!showResetConfirm ? (
+                              <button 
+                                onClick={() => setShowResetConfirm(true)}
+                                className="px-6 py-3 bg-rose-600 text-white font-black uppercase tracking-widest rounded-xl border-2 border-rose-700 shadow-[4px_4px_0px_0px_rgba(190,18,60,1)] hover:bg-rose-700 transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
+                              >
+                                {t('Reset System')}
+                              </button>
+                            ) : (
+                              <div className="space-y-4 pt-4 border-t border-rose-200">
+                                <p className="text-sm font-bold text-rose-700">
+                                  {t('Are you sure you want to reset all system records? This action cannot be undone.')}
+                                </p>
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-black uppercase text-rose-500 tracking-widest ml-1">
+                                    {t('Type CONFIRM to proceed')}
+                                  </label>
+                                  <input 
+                                    type="text" 
+                                    value={resetConfirmText}
+                                    onChange={(e) => setResetConfirmText(e.target.value)}
+                                    placeholder="CONFIRM"
+                                    className="w-full p-4 bg-white border-2 border-rose-300 rounded-xl font-bold focus:border-rose-600 outline-none transition-all text-slate-900" 
+                                  />
+                                </div>
+                                <div className="flex gap-4">
+                                  <button 
+                                    onClick={handleSystemReset}
+                                    disabled={isResetting || resetConfirmText !== 'CONFIRM'}
+                                    className="flex-1 py-3 bg-rose-600 text-white font-black uppercase tracking-widest rounded-xl border-2 border-rose-700 shadow-[4px_4px_0px_0px_rgba(190,18,60,1)] hover:bg-rose-700 transition-all active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {isResetting ? t('Resetting...') : t('Confirm Reset')}
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      setShowResetConfirm(false);
+                                      setResetConfirmText('');
+                                    }}
+                                    disabled={isResetting}
+                                    className="flex-1 py-3 bg-white text-slate-700 font-black uppercase tracking-widest rounded-xl border-2 border-slate-300 shadow-[4px_4px_0px_0px_rgba(203,213,225,1)] hover:bg-slate-50 transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
+                                  >
+                                    {t('Cancel')}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -6561,7 +6866,7 @@ function NotificationOverlay({
     if (notif.type === 'donation') return 'Donation';
     if (notif.type === 'application' && notif.targetSubTab === 'donations') return 'Application';
     if (notif.targetSubTab === 'projects') return 'Projects';
-    if (notif.type === 'audit' || notif.targetSubTab === 'transparency') return 'Audit';
+    if (notif.type === 'audit' || notif.type === 'transparency' || notif.targetSubTab === 'transparency') return 'Audit';
     if (notif.type === 'appointment' || notif.targetSubTab === 'appointments') return 'Appointment';
     return 'Others';
   };
@@ -6661,7 +6966,7 @@ function NotificationOverlay({
                         notif.type === 'application' ? 'bg-amber-400' :
                         notif.type === 'feedback' ? 'bg-emerald-400' :
                         notif.type === 'appointment' ? 'bg-blue-400' :
-                        notif.type === 'audit' ? 'bg-purple-400' :
+                        notif.type === 'audit' || notif.type === 'transparency' ? 'bg-purple-400' :
                         'bg-[#E4E3E0]'
                       }`}>
                         {notif.type}
