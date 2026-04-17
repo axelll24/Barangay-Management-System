@@ -1138,6 +1138,8 @@ export default function App() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const [systemLogo, setSystemLogo] = useState<string | null>(null);
+  const systemLogoInputRef = useRef<HTMLInputElement>(null);
 
   const t = (key: string) => {
     return translations[key]?.[appLanguage] || key;
@@ -1311,11 +1313,11 @@ export default function App() {
       console.log('Attempting to save approval record:', approvalRecord);
       await addDoc(collection(db, 'approval_records'), approvalRecord);
 
-      // 2. Send message from Leo Reyes (admin)
+      // 2. Send message from Axel Tiquez (admin)
       const messageData = {
         text: generatedMessage,
         senderId: 'admin',
-        senderName: 'Leo Reyes',
+        senderName: 'Axel Tiquez',
         receiverId: residentId || 'unknown',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: 'unread',
@@ -1323,8 +1325,8 @@ export default function App() {
         isAutomated: true,
         createdAt: serverTimestamp(),
         senderProfile: {
-          fullName: 'Leo Reyes',
-          nickname: 'Admin Leo',
+          fullName: 'Axel Tiquez',
+          nickname: 'Admin Axel',
           address: 'Barangay Hall',
           contact: '',
           purok: '',
@@ -1671,6 +1673,14 @@ export default function App() {
     const unsubAnnouncements = onSnapshot(collection(db, 'announcements'), (snapshot) => {
       setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'announcements'));
+    
+    const unsubLogo = onSnapshot(doc(db, 'system_settings', 'logo'), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().logoUrl) {
+        setSystemLogo(docSnap.data().logoUrl);
+      } else {
+        setSystemLogo(null);
+      }
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'system_settings/logo'));
 
     const auditQuery = role === 'official' 
       ? collection(db, 'auditRequests') 
@@ -1815,6 +1825,7 @@ export default function App() {
       unsubProjects();
       unsubBudget();
       unsubAnnouncements();
+      unsubLogo();
       unsubAudit();
       unsubAuditReports();
       unsubMessages();
@@ -1993,9 +2004,12 @@ export default function App() {
       remoteAudioRef.current.srcObject = null;
     }
   };
+  const hasSeededServices = useRef(false);
+
   useEffect(() => {
     const seedServices = async () => {
-      if (barangayServices.length === 0 && role === 'official') {
+      if (barangayServices.length === 0 && role === 'official' && !hasSeededServices.current) {
+        hasSeededServices.current = true;
         const initialServices = [
           { name: 'Barangay Indigency', description: 'For financial assistance, scholarships, etc.', requirements: ['Valid ID', 'Proof of Residency'], estimatedProcessingTime: '15-30 mins' },
           { name: 'Barangay Clearance', description: 'For employment, local transactions, etc.', requirements: ['Valid ID', 'Cedula', 'Recent Photo'], estimatedProcessingTime: '10-20 mins' },
@@ -2005,7 +2019,11 @@ export default function App() {
           { name: 'First Time Job Seeker', description: 'Certificate for job application benefits.', requirements: ['Valid ID', 'Oath of Undertaking'], estimatedProcessingTime: '15-20 mins' }
         ];
         for (const s of initialServices) {
-          await addDoc(collection(db, 'barangayServices'), s);
+          try {
+            await addDoc(collection(db, 'barangayServices'), s);
+          } catch (e) {
+            console.error('Failed to seed service:', e);
+          }
         }
       }
     };
@@ -2327,7 +2345,7 @@ export default function App() {
       case 'auth/user-not-found':
         return 'Incorrect name or password. Please check your credentials and try again.';
       case 'auth/email-already-in-use':
-        return 'This name is already registered. Please login instead or add a middle initial if you have a namesake.';
+        return 'This email address is already registered. Please use a different email or log in.';
       case 'auth/too-many-requests':
         return 'Too many failed attempts. Please try again later for your security.';
       case 'auth/operation-not-allowed':
@@ -2403,12 +2421,12 @@ export default function App() {
         await deleteInBatches(refsToDelete);
       }
 
-      // 2. Delete users (Preserving ONLY Leo Reyes)
+      // 2. Delete users (Preserving ONLY Axel Tiquez)
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const userRefsToDelete: any[] = [];
       usersSnapshot.forEach((userDoc) => {
         const data = userDoc.data();
-        if (data.email !== 'leoreyes@pahinganorte.gov') {
+        if (data.email !== 'axeltiquez22@gmail.com') {
           userRefsToDelete.push(userDoc.ref);
         }
       });
@@ -2474,7 +2492,7 @@ export default function App() {
   };
 
   const addDonation = async (newDonation: Omit<Donation, 'id' | 'status' | 'date'>) => {
-    const isAdminDirect = role === 'official' && authName === 'Leo Reyes';
+    const isAdminDirect = role === 'official' && authName === 'Axel Tiquez';
     const donation: any = {
       ...newDonation,
       status: isAdminDirect ? 'available' : 'pending_donation',
@@ -2485,7 +2503,7 @@ export default function App() {
       await addDoc(collection(db, 'donations'), donation);
       
       if (isAdminDirect) {
-        addNotification('admin', 'Inventory Updated', `Admin Leo Reyes added ${newDonation.quantity}x ${newDonation.item} directly to inventory.`, 'donation', 'dashboard', 'donations');
+        addNotification('admin', 'Inventory Updated', `Admin Axel Tiquez added ${newDonation.quantity}x ${newDonation.item} directly to inventory.`, 'donation', 'dashboard', 'donations');
         showAlert('Item added directly to inventory!');
       } else {
         // Notify Admin
@@ -3033,6 +3051,47 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !auth.currentUser) return;
+    
+    // We expect this to be called by admin, but let's ensure size is reasonable:
+    if (file.size > 2 * 1024 * 1024) {
+      showAlert('File is too large! Please select an image under 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      const compressedBase64 = await compressImage(base64String, 800, 800, 0.8);
+      try {
+        await updateDoc(doc(db, 'system_settings', 'logo'), {
+          logoUrl: compressedBase64,
+          updatedBy: auth.currentUser!.uid,
+          updatedAt: new Date().toISOString()
+        }).catch(async (e) => {
+          // If the document doesn't exist yet, we catch the error and use setDoc
+          if (e.code === 'not-found') {
+             const { setDoc } = await import('firebase/firestore');
+             await setDoc(doc(db, 'system_settings', 'logo'), {
+               logoUrl: compressedBase64,
+               updatedBy: auth.currentUser!.uid,
+               updatedAt: new Date().toISOString()
+             });
+          } else {
+            throw e;
+          }
+        });
+        
+        showAlert('System logo updated successfully!');
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `system_settings/logo`);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const sendMessage = async (text: string, receiverId: string, imageUrl?: string) => {
     const newMessage: any = {
       senderId: auth.currentUser?.uid || 'anonymous',
@@ -3101,7 +3160,7 @@ export default function App() {
           {/* Large Subtle Logo in Background */}
           <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/4 opacity-[0.03] pointer-events-none">
             <img 
-              src={BARANGAY_LOGO} 
+              src={systemLogo || BARANGAY_LOGO} 
               alt="" 
               className="w-[800px] h-[800px] object-contain grayscale invert"
               referrerPolicy="no-referrer"
@@ -3115,7 +3174,7 @@ export default function App() {
           <div className="relative z-10 flex items-center gap-5">
             <div className="w-16 h-16 text-[#020617] rounded-2xl flex items-center justify-center transform -rotate-6 shadow-2xl shadow-blue-500/30 transition-transform hover:rotate-0 duration-500 overflow-hidden border-2 border-[#141414]">
               <img 
-                src={BARANGAY_LOGO} 
+                src={systemLogo || BARANGAY_LOGO} 
                 alt="Barangay Logo" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
@@ -3616,42 +3675,26 @@ export default function App() {
                       </div>
                     </div>
 
-                    {authRole === 'official' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('Official Position')}</label>
-                          <div className="relative group">
-                            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors">
-                              <ShieldCheck className="w-5 h-5" />
+                      {authRole === 'official' && (
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="space-y-2">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('Official Position')}</label>
+                            <div className="relative group">
+                              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors">
+                                <ShieldCheck className="w-5 h-5" />
+                              </div>
+                              <input 
+                                required
+                                type="text" 
+                                value={authPosition}
+                                onChange={(e) => setAuthPosition(e.target.value)}
+                                className="w-full pl-14 pr-6 py-4 bg-white/80 backdrop-blur-sm border-2 border-slate-100 rounded-2xl focus:border-blue-600 focus:bg-white focus:ring-8 focus:ring-blue-600/5 outline-none transition-all font-bold text-[#0F172A] placeholder:text-slate-300" 
+                                placeholder="e.g. Barangay Kagawad" 
+                              />
                             </div>
-                            <input 
-                              required
-                              type="text" 
-                              value={authPosition}
-                              onChange={(e) => setAuthPosition(e.target.value)}
-                              className="w-full pl-14 pr-6 py-4 bg-white/80 backdrop-blur-sm border-2 border-slate-100 rounded-2xl focus:border-blue-600 focus:bg-white focus:ring-8 focus:ring-blue-600/5 outline-none transition-all font-bold text-[#0F172A] placeholder:text-slate-300" 
-                              placeholder="e.g. Barangay Kagawad" 
-                            />
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Admin Code</label>
-                          <div className="relative group">
-                            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors">
-                              <Key className="w-5 h-5" />
-                            </div>
-                            <input 
-                              required
-                              type="password" 
-                              value={authAdminCode}
-                              onChange={(e) => setAuthAdminCode(e.target.value)}
-                              className="w-full pl-14 pr-6 py-4 bg-white/80 backdrop-blur-sm border-2 border-slate-100 rounded-2xl focus:border-blue-600 focus:bg-white focus:ring-8 focus:ring-blue-600/5 outline-none transition-all font-bold text-[#0F172A] placeholder:text-slate-300" 
-                              placeholder="Enter admin code" 
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                      )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -3861,17 +3904,68 @@ export default function App() {
                         };
 
                         setIsAuthLoading(true);
-                        checkExistingName().then((exists) => {
-                          setIsAuthLoading(false);
+                        checkExistingName().then(async (exists) => {
                           if (!exists) {
                             setAuthError(null);
-                            setAuthStep('id_verification');
+                            if (authRole === 'official') {
+                              try {
+                                isRegisteringRef.current = true;
+                                const email = authEmail.trim().toLowerCase();
+                                const userCredential = await createUserWithEmailAndPassword(auth, email, authPassword);
+                                const user = userCredential.user;
+                                
+                                await setDoc(doc(db, 'users', user.uid), {
+                                  uid: user.uid,
+                                  fullName: authName || '',
+                                  normalizedFullName: (authName || '').toLowerCase().trim(),
+                                  email: email,
+                                  nickname: authNickname || '',
+                                  contact: authContact || '',
+                                  purok: authPurok || '',
+                                  gender: authGender || '',
+                                  role: authRole,
+                                  position: authPosition || '',
+                                  verificationStatus: 'Verified',
+                                  timestamp: new Date().toISOString()
+                                });
+                                
+                                await signOut(auth);
+                                const registeredRole = authRole;
+                                const registeredName = authName;
+                                clearAuthForm(true, true);
+                                setSelectedRole(registeredRole);
+                                setAuthName(registeredName);
+                                setAuthSuccess(t('Account created successfully! Please log in with your new account.'));
+                                setAuthStep('signin_form');
+                              } catch (error: any) {
+                                setAuthError(t('Registration failed:') + ' ' + getAuthErrorMessage(error));
+                              } finally {
+                                isRegisteringRef.current = false;
+                                setIsAuthLoading(false);
+                              }
+                            } else {
+                              setIsAuthLoading(false);
+                              setAuthStep('id_verification');
+                            }
+                          } else {
+                            setIsAuthLoading(false);
                           }
                         });
                       }}
                       className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/20 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none flex items-center justify-center gap-3"
                     >
-                      {t('Continue to ID Verification')} <ArrowRight className="w-5 h-5" />
+                      {authRole === 'official' ? (
+                        <>{isAuthLoading ? (
+                          <>
+                            <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                            {t('Creating...')}
+                          </>
+                        ) : (
+                          <>{t('Create Admin Account')} <CheckCircle2 className="w-5 h-5" /></>
+                        )}</>
+                      ) : (
+                        <>{t('Continue to ID Verification')} <ArrowRight className="w-5 h-5" /></>
+                      )}
                     </button>
 
                     <div className="mt-6 text-center">
@@ -5055,6 +5149,36 @@ Respond in JSON format with the following schema:
                     </div>
 
                     <div className="space-y-6">
+                      {role === 'official' && (
+                        <div className="space-y-4">
+                          <h6 className="font-black uppercase text-slate-800 dark:text-white flex items-center gap-2">
+                            <Image className="w-5 h-5 text-blue-500" />
+                            {t('System Logo')}
+                          </h6>
+                          <div className="p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl flex items-center gap-6">
+                            <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-[#141414] shadow-[4px_4px_0px_0px_rgba(20,20,20,1)] bg-white flex-shrink-0">
+                              <img src={systemLogo || BARANGAY_LOGO} alt="System Logo" className="w-full h-full object-contain" />
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              <p className="text-xs text-slate-500 font-bold">{t('Update the official system logo. Recommended size: 400x400px. Max limit: 2MB.')}</p>
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                className="hidden"
+                                ref={systemLogoInputRef}
+                                onChange={handleLogoUpload}
+                              />
+                              <button
+                                onClick={() => systemLogoInputRef.current?.click()}
+                                className="px-4 py-2 bg-blue-100 text-blue-600 font-black uppercase text-xs rounded-xl hover:bg-blue-200 transition-colors"
+                              >
+                                {t('Upload New Logo')}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl">
                         <div>
                           <h6 className="font-black uppercase">{t('Dark Mode')}</h6>
@@ -5136,7 +5260,7 @@ Respond in JSON format with the following schema:
                       </button>
 
                       {/* System Reset Section */}
-                      {(auth.currentUser?.email === 'leoreyes@pahinganorte.gov' || auth.currentUser?.email === 'axeltiquez22@gmail.com') && (
+                      {(auth.currentUser?.email === 'axeltiquez22@gmail.com') && (
                         <div className="pt-8 mt-8 border-t-2 border-slate-200">
                           <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center">
@@ -5352,7 +5476,7 @@ Respond in JSON format with the following schema:
                       <div className="space-y-2">
                         <div className="w-24 h-24 border-4 border-[#141414] rounded-full mx-auto mb-4 overflow-hidden shadow-xl">
                           <img 
-                            src={BARANGAY_LOGO} 
+                            src={systemLogo || BARANGAY_LOGO} 
                             alt="Barangay Seal" 
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
@@ -5551,7 +5675,7 @@ Respond in JSON format with the following schema:
           </button>
           <div className="w-32 h-32 border-4 border-white/20 rounded-2xl overflow-hidden shadow-2xl shadow-black/40">
             <img 
-              src={BARANGAY_LOGO} 
+              src={systemLogo || BARANGAY_LOGO} 
               alt="Logo" 
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
@@ -6096,7 +6220,7 @@ Respond in JSON format with the following schema:
               if (!hasSent) {
                 const adminMessage = {
                   senderId: 'admin',
-                  senderName: 'Leo Reyes (Admin)',
+                  senderName: 'Axel Tiquez (Admin)',
                   senderRole: 'official',
                   receiverId: auth.currentUser.uid,
                   text: `Hello ${authName}, we received your donation offer. Reminder: Hindi i-aaccept ng barangay ang donation ninyo kapag hindi pa ninyo ito nadadala sa barangay (personal). Mananatiling naka-pending ang donation ninyo hangga't hindi pa ninyo nadadala ang item sa barangay at hangga't hindi pa ito ina-approve ng admin.\n\nKailan mo dadalhin ang item sa barangay?\nPlease upload image of the item.`,
@@ -6105,8 +6229,8 @@ Respond in JSON format with the following schema:
                   status: 'unread',
                   isAutomated: true,
                   senderProfile: {
-                    fullName: 'Leo Reyes',
-                    nickname: 'Admin Leo',
+                    fullName: 'Axel Tiquez',
+                    nickname: 'Admin Axel',
                     address: 'Barangay Hall',
                     contact: '',
                     purok: '',
@@ -6126,7 +6250,7 @@ Respond in JSON format with the following schema:
               if (!hasSent) {
                 const adminMessage = {
                   senderId: 'admin',
-                  senderName: 'Leo Reyes (Admin)',
+                  senderName: 'Axel Tiquez (Admin)',
                   senderRole: 'official',
                   receiverId: auth.currentUser.uid,
                   text: `Hello ${authName}, we received your application for benefits. Your application is currently pending approval.\n\nKailan mo kukunin ang item kapag na-approve na ito?`,
@@ -6135,8 +6259,8 @@ Respond in JSON format with the following schema:
                   status: 'unread',
                   isAutomated: true,
                   senderProfile: {
-                    fullName: 'Leo Reyes',
-                    nickname: 'Admin Leo',
+                    fullName: 'Axel Tiquez',
+                    nickname: 'Admin Axel',
                     address: 'Barangay Hall',
                     contact: '',
                     purok: '',
@@ -6156,7 +6280,7 @@ Respond in JSON format with the following schema:
               if (!hasSent) {
                 const adminMessage = {
                   senderId: 'admin',
-                  senderName: 'Leo Reyes (Admin)',
+                  senderName: 'Axel Tiquez (Admin)',
                   senderRole: 'official',
                   receiverId: auth.currentUser.uid,
                   text: `Congratulations! Your application is valid and approved by admin. Please visit the Barangay Hall during office hours (8 AM - 5 PM, Mon-Fri) to claim your item. Please bring a valid ID and any required documents.`,
@@ -6165,8 +6289,8 @@ Respond in JSON format with the following schema:
                   status: 'unread',
                   isAutomated: true,
                   senderProfile: {
-                    fullName: 'Leo Reyes',
-                    nickname: 'Admin Leo',
+                    fullName: 'Axel Tiquez',
+                    nickname: 'Admin Axel',
                     address: 'Barangay Hall',
                     contact: '',
                     purok: '',
@@ -6193,7 +6317,7 @@ Respond in JSON format with the following schema:
               if (!hasSent) {
                 const adminMessage = {
                   senderId: 'admin',
-                  senderName: 'Leo Reyes (Admin)',
+                  senderName: 'Axel Tiquez (Admin)',
                   senderRole: 'official',
                   receiverId: auth.currentUser.uid,
                   text: `${expectedText} Please arrive on time and bring the required documents.`,
@@ -6202,8 +6326,8 @@ Respond in JSON format with the following schema:
                   status: 'unread',
                   isAutomated: true,
                   senderProfile: {
-                    fullName: 'Leo Reyes',
-                    nickname: 'Admin Leo',
+                    fullName: 'Axel Tiquez',
+                    nickname: 'Admin Axel',
                     address: 'Barangay Hall',
                     contact: '',
                     purok: '',
@@ -9054,7 +9178,7 @@ function OfficialsModule({
               
               <div className="flex flex-col items-center text-center mb-6 relative">
                 <div className="absolute -top-4 -left-4 w-20 h-20 opacity-10 pointer-events-none">
-                  <img src={BARANGAY_LOGO} alt="" className="w-full h-full object-contain" />
+                  <img src={systemLogo || BARANGAY_LOGO} alt="" className="w-full h-full object-contain" />
                 </div>
                 <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#141414] shadow-[4px_4px_0px_0px_rgba(20,20,20,1)] mb-4">
                   <img 

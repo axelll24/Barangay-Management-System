@@ -59,8 +59,7 @@ service cloud.firestore {
     function isMainAdmin() {
       return isAuthenticated() &&
         (
-          request.auth.token.email == "axeltiquez22@gmail.com" ||
-          request.auth.token.email == "leoreyes@pahinganorte.gov"
+          request.auth.token.email == "axeltiquez22@gmail.com"
         );
     }
 
@@ -68,7 +67,6 @@ service cloud.firestore {
       return isAuthenticated() &&
         (
           request.auth.token.email == "axeltiquez22@gmail.com" ||
-          request.auth.token.email == "leoreyes@pahinganorte.gov" ||
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'official')
         );
@@ -188,10 +186,7 @@ service cloud.firestore {
              data.callerId is string && data.callerName is string &&
              data.receiverId is string && data.receiverName is string &&
              data.status in ['ringing', 'answered', 'declined', 'ended', 'missed'] &&
-             data.timestamp is string &&
-             (!('createdAt' in data) || (resource == null && data.createdAt == request.time) || (resource != null && data.createdAt == resource.data.createdAt)) &&
-             (!('offer' in data) || data.offer is map) &&
-             (!('answer' in data) || data.answer is map);
+             data.timestamp is string;
     }
 
     function isValidAchievement(data) {
@@ -301,6 +296,12 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update: if isAdmin() && isValidBudget(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /system_settings/{settingId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && (!('logoUrl' in request.resource.data) || request.resource.data.logoUrl is string) && (!('updatedBy' in request.resource.data) || request.resource.data.updatedBy is string) && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is string);
+      allow delete: if isMainAdmin();
     }
 
     match /announcements/{announcementId} {
