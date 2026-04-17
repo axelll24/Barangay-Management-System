@@ -254,7 +254,7 @@ service cloud.firestore {
 
     match /donations/{donationId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidDonation(request.resource.data);
+      allow create: if isAuthenticated() && isValidDonation(request.resource.data) && (isAdmin() || request.resource.data.status in ['pending_donation', 'pending_application']);
       allow update: if isAdmin() || (isAuthenticated() && (request.resource.data.donorUid == resource.data.donorUid || request.resource.data.beneficiaryUid == resource.data.beneficiaryUid)) && isValidDonation(request.resource.data);
       allow delete: if isAdmin() || isMainAdmin();
     }

@@ -2492,7 +2492,7 @@ export default function App() {
   };
 
   const addDonation = async (newDonation: Omit<Donation, 'id' | 'status' | 'date'>) => {
-    const isAdminDirect = role === 'official' && authName === 'Axel Tiquez';
+    const isAdminDirect = role === 'official';
     const donation: any = {
       ...newDonation,
       status: isAdminDirect ? 'available' : 'pending_donation',
@@ -2503,8 +2503,8 @@ export default function App() {
       await addDoc(collection(db, 'donations'), donation);
       
       if (isAdminDirect) {
-        addNotification('admin', 'Inventory Updated', `Admin Axel Tiquez added ${newDonation.quantity}x ${newDonation.item} directly to inventory.`, 'donation', 'dashboard', 'donations');
-        showAlert('Item added directly to inventory!');
+        addNotification('admin', 'Inventory Updated', `Admin ${authName} added ${newDonation.quantity}x ${newDonation.item} directly to inventory.`, 'donation', 'dashboard', 'donations');
+        showAlert('Donation record has been successfully added and approved.');
       } else {
         // Notify Admin
         addNotification('admin', 'New Donation Submitted', `${newDonation.donorName} has submitted a new donation: ${newDonation.item}`, 'donation', 'dashboard', 'donations');
@@ -7546,7 +7546,7 @@ function DonationModule({
             className="bg-white border-4 border-[#141414] p-8 rounded-2xl shadow-[12px_12px_0px_0px_rgba(20,20,20,1)]"
           >
             <div className="flex justify-between items-center mb-6">
-              <h4 className="text-xl font-black uppercase">{t('New Donation Offer')}</h4>
+              <h4 className="text-xl font-black uppercase">{role === 'official' ? t('Add Record') : t('New Donation Offer')}</h4>
               <button onClick={() => setShowForm(false)} className="text-[#141414] hover:text-rose-500 transition-colors"><XCircle className="w-6 h-6" /></button>
             </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
