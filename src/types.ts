@@ -22,6 +22,7 @@ export interface Donation {
   requirements?: string;
   declineReason?: string;
   isApplication?: boolean;
+  source?: string;
   pickupDeadline?: string;
   submissionDeadline?: string;
   residentDeliveryDate?: string;

@@ -1346,14 +1346,6 @@ export default function App() {
           date: scheduledDate,
           timeSlot: scheduledTime
         });
-      } else if (featureType === 'donation') {
-        const donationRef = doc(db, 'donations', recordId);
-        await updateDoc(donationRef, { 
-          status: 'approved', 
-          submissionDeadline: scheduledDate,
-          adminDeadlineDate: scheduledDate,
-          adminDeadlineTime: scheduledTime
-        });
       } else if (featureType === 'application') {
         const appRef = doc(db, 'donations', recordId);
         const appSnap = await getDoc(appRef);
@@ -2496,6 +2488,7 @@ export default function App() {
     const donation: any = {
       ...newDonation,
       status: isAdminDirect ? 'available' : 'pending_donation',
+      source: 'donation',
       date: new Date().toISOString().split('T')[0],
       donorUid: auth.currentUser?.uid || 'anonymous'
     };
@@ -4498,13 +4491,44 @@ Respond in JSON format with the following schema:
             onAddApplication={addApplication}
             onUpdateStatus={updateDonationStatus}
             onApproveDonation={(id, residentId, residentName) => {
-              setApprovalModalConfig({
-                isOpen: true,
-                recordId: id,
-                featureType: 'donation',
-                title: 'Approve Donation',
-                residentId,
-                residentName
+              showConfirm(`Are you sure you want to approve this donation from ${residentName || 'this resident'}?`, async () => {
+                try {
+                  const donationRef = doc(db, 'donations', id);
+                  await updateDoc(donationRef, { 
+                    status: 'available',
+                    source: 'donation'
+                  });
+                  
+                  if (residentId) {
+                    await addDoc(collection(db, 'messages'), {
+                      text: `Your donation has been approved. Thank you for your generosity!`,
+                      senderId: 'admin',
+                      senderName: 'Axel Tiquez',
+                      receiverId: residentId,
+                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      status: 'unread',
+                      senderRole: 'official',
+                      isAutomated: true,
+                      createdAt: serverTimestamp(),
+                      senderProfile: {
+                        fullName: 'Axel Tiquez',
+                        nickname: 'Admin Axel',
+                        address: 'Barangay Hall',
+                        contact: '',
+                        purok: '',
+                        gender: 'Male',
+                        photoURL: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=400&h=400'
+                      }
+                    });
+
+                    await addNotification(residentId, 'Donation Approved', 'Your donation has been approved. Thank you for your generosity!', 'donation');
+                  }
+                  
+                  showAlert('Donation approved and added to available items.');
+                } catch (error) {
+                  console.error('Approval error:', error);
+                  showAlert('Failed to approve donation.');
+                }
               });
             }}
             onApproveApplication={(id, residentId, residentName) => {
@@ -7175,7 +7199,7 @@ function DonationModule({
     requirements: ''
   });
 
-  const [activeStatusTab, setActiveStatusTab] = useState<'pending' | 'approved' | 'declined' | 'released'>('pending');
+  const [activeStatusTab, setActiveStatusTab] = useState<'pending' | 'approved' | 'declined'>('pending');
   const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'name_az' | 'name_za'>('date_desc');
   const [deadlineDate, setDeadlineDate] = useState('');
 
@@ -7205,7 +7229,6 @@ function DonationModule({
         if (activeStatusTab === 'pending') return d.status === 'pending_donation' || d.status === 'pending_application';
         if (activeStatusTab === 'approved') return d.status === 'available' || d.status === 'approved';
         if (activeStatusTab === 'declined') return d.status === 'declined' || d.status === 'cancelled';
-        if (activeStatusTab === 'released') return d.status === 'released' || d.status === 'completed';
         return true;
       }
       
@@ -7215,7 +7238,6 @@ function DonationModule({
       if (activeStatusTab === 'pending') return d.status === 'pending_donation' || d.status === 'pending_application';
       if (activeStatusTab === 'approved') return d.status === 'available' || d.status === 'approved';
       if (activeStatusTab === 'declined') return d.status === 'declined' || d.status === 'cancelled';
-      if (activeStatusTab === 'released') return d.status === 'released' || d.status === 'completed';
       return true;
     });
 
@@ -7458,11 +7480,6 @@ function DonationModule({
             id: 'approved', 
             label: residentMode === 'donor' ? t('Available') : t('Approved'), 
             icon: <CheckCircle2 className="w-4 h-4" /> 
-          },
-          { 
-            id: 'released', 
-            label: residentMode === 'donor' ? t('Completed') : t('Released'), 
-            icon: <HandHelping className="w-4 h-4" /> 
           },
           { id: 'declined', label: t('Declined'), icon: <XCircle className="w-4 h-4" /> }
         ].map(tab => (
@@ -7824,17 +7841,7 @@ function DonationModule({
                     )}
                   </div>
                   <div className="text-right flex justify-end items-center gap-2">
-                    {role === 'official' && d.status === 'approved' && !d.isApplication && (
-                      <div className="flex justify-end gap-2">
-                        <button 
-                          onClick={() => onUpdateStatus(d.id, 'completed')}
-                          className="p-2 bg-emerald-500 text-white border-2 border-[#141414] rounded-lg shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] hover:translate-x-[-1px] hover:translate-y-[-1px]" 
-                          title="Mark as Completed"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
+
                     {role === 'official' && d.status === 'pending_donation' && (
                       <div className="flex justify-end gap-2">
                         <button onClick={() => onApproveDonation(d.id, d.donorUid, d.donorName)} className="p-2 bg-emerald-400 border-2 border-[#141414] rounded-lg shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] hover:translate-x-[-1px] hover:translate-y-[-1px]" title="Approve Donation"><CheckCircle2 className="w-4 h-4" /></button>
