@@ -4564,6 +4564,7 @@ Respond in JSON format with the following schema:
       case 'officials':
         return (
           <OfficialsModule 
+            systemLogo={systemLogo}
             role={role!}
             officials={formerOfficials}
             onBack={() => setDashboardSubTab('system')} 
@@ -4700,8 +4701,8 @@ Respond in JSON format with the following schema:
                       .filter(a => new Date(a.date) <= new Date())
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .slice(0, 3)
-                      .map(a => (
-                      <div key={a.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded transition-colors">
+                      .map((a, i) => (
+                      <div key={`recent-activity-${a.id}-${i}`} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded transition-colors">
                         <div className={`w-2 h-2 rounded-full ${a.color || 'bg-blue-500'}`} />
                         <p className="text-sm font-medium">{a.title}</p>
                         <span className="text-[10px] text-slate-400 ml-auto">{a.date}</span>
@@ -4739,6 +4740,7 @@ Respond in JSON format with the following schema:
       case 'officials-list':
         return (
           <OfficialsModule 
+            systemLogo={systemLogo}
             role={role!}
             officials={officials}
             onBack={() => setActiveTab('dashboard')} 
@@ -7068,9 +7070,9 @@ function NotificationOverlay({
                   <p className="font-black uppercase tracking-widest text-xs">No notifications yet</p>
                 </div>
               ) : (
-                filteredNotifications.map((notif) => (
+                filteredNotifications.map((notif, idx) => (
                   <div 
-                    key={notif.id}
+                    key={`notif-${notif.id}-${idx}`}
                     className={`p-4 border-2 border-[#141414] rounded-xl shadow-[4px_4px_0px_0px_rgba(20,20,20,1)] transition-all cursor-pointer hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(20,20,20,1)] ${
                       notif.status === 'unread' ? 'bg-amber-50' : 'bg-white'
                     }`}
@@ -8641,7 +8643,8 @@ function OfficialsModule({
   onDelete,
   showConfirm,
   title = "Official List",
-  userStreet
+  userStreet,
+  systemLogo
 }: { 
   onBack: () => void, 
   onCall: (official: Official) => void,
@@ -8653,7 +8656,8 @@ function OfficialsModule({
   onDelete: (id: string) => void,
   showConfirm: (msg: string, onConfirm: () => void) => void,
   title?: string,
-  userStreet?: string
+  userStreet?: string,
+  systemLogo?: string | null
 }) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingOfficial, setEditingOfficial] = useState<Official | null>(null);
@@ -8976,8 +8980,8 @@ function OfficialsModule({
               </p>
               <div className="pt-6 border-t border-slate-200 flex items-center gap-6">
                 <div className="flex -space-x-2">
-                  {[1,2,3].map(i => (
-                    <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200" />
+                  {[1,2,3].map((item, idx) => (
+                    <div key={`leader-avatar-${idx}`} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200" />
                   ))}
                 </div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Leading 12 Council Members</p>
@@ -8991,10 +8995,10 @@ function OfficialsModule({
       <div className="space-y-8">
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {kagawads.map((o) => {
+          {kagawads.map((o, idx) => {
             const isAssignedToUser = userStreet && o.streets?.includes(userStreet);
             return (
-              <div key={o.id} className={`group p-4 rounded-[2rem] transition-all ${isAssignedToUser ? 'bg-blue-50 border-4 border-blue-600 shadow-[8px_8px_0px_0px_rgba(59,130,246,1)]' : ''}`}>
+              <div key={`${o.id}-${idx}`} className={`group p-4 rounded-[2rem] transition-all ${isAssignedToUser ? 'bg-blue-50 border-4 border-blue-600 shadow-[8px_8px_0px_0px_rgba(59,130,246,1)]' : ''}`}>
                 <div className="relative mb-4">
                   {isAssignedToUser && (
                     <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-20 bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border-2 border-[#141414] shadow-md whitespace-nowrap">
@@ -9086,8 +9090,8 @@ function OfficialsModule({
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {otherStaff.map((o) => (
-            <div key={o.id} className="flex items-center gap-5 p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-blue-600 transition-all group shadow-sm hover:shadow-xl hover:shadow-blue-900/5 relative">
+          {otherStaff.map((o, i) => (
+            <div key={`${o.id}-${o.position}-${i}`} className="flex items-center gap-5 p-4 bg-white border-2 border-slate-100 rounded-2xl hover:border-blue-600 transition-all group shadow-sm hover:shadow-xl hover:shadow-blue-900/5 relative">
               {role === 'official' && (
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 

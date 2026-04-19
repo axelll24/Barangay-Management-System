@@ -1,0 +1,50 @@
+<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="500" fill="#f8fafc" />
+  
+  <!-- Title -->
+  <text x="400" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="#1e293b">System Architecture: Pahinga Norte Management System</text>
+  
+  <!-- Boxes -->
+  <!-- Frontend -->
+  <rect x="300" y="200" width="200" height="100" rx="10" fill="#3b82f6" stroke="#2563eb" stroke-width="2" />
+  <text x="400" y="245" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="white">Frontend</text>
+  <text x="400" y="265" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="white">React, TypeScript, Vite</text>
+  <text x="400" y="280" font-family="Arial, sans-serif" font-size="10" text-anchor="middle" fill="white">(Hosted on Vercel)</text>
+
+  <!-- Firebase Auth -->
+  <rect x="50" y="80" width="200" height="80" rx="10" fill="#f59e0b" stroke="#d97706" stroke-width="2" />
+  <text x="150" y="120" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Firebase Auth</text>
+  <text x="150" y="140" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="white">Identity &amp; Login</text>
+
+  <!-- Firestore -->
+  <rect x="550" y="80" width="200" height="80" rx="10" fill="#ef4444" stroke="#dc2626" stroke-width="2" />
+  <text x="650" y="120" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Cloud Firestore</text>
+  <text x="650" y="140" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="white">Real-time NoSQL DB</text>
+
+  <!-- Gemini AI -->
+  <rect x="300" y="380" width="200" height="80" rx="10" fill="#8b5cf6" stroke="#7c3aed" stroke-width="2" />
+  <text x="400" y="420" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">Gemini AI API</text>
+  <text x="400" y="440" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="white">ID Scanner &amp; Verification</text>
+
+  <!-- Connectors (Arrows) -->
+  <!-- Frontend to Auth -->
+  <path d="M300 220 L 220 160" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  <!-- Frontend to Firestore -->
+  <path d="M500 220 L 580 160" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  <!-- Frontend to Gemini -->
+  <path d="M400 300 L 400 370" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+
+  <!-- Arrowhead definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <!-- Labels on arrows -->
+  <text x="210" y="210" font-family="Arial, sans-serif" font-size="10" fill="#475569" transform="rotate(-35, 210, 210)">Authentication</text>
+  <text x="530" y="200" font-family="Arial, sans-serif" font-size="10" fill="#475569" transform="rotate(35, 530, 200)">Data Sync</text>
+  <text x="410" y="340" font-family="Arial, sans-serif" font-size="10" fill="#475569">ID Verification</text>
+
+</svg>
